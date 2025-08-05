@@ -31,6 +31,8 @@ DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = ['*']
 
+#########################################################
+AUTH_USER_MODEL = 'user.User'
 
 # Application definition
 
@@ -47,7 +49,15 @@ INSTALLED_APPS = [
     'drf_yasg',
     
     'main',
+    'user',
+    'schedule',
+    'alert',
+    'recall',
+    'tutorial',
 ]
+
+
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
