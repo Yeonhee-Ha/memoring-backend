@@ -158,3 +158,11 @@ CORS_ALLOW_CREDENTIALS = True
 #    'http://프론트엔드주소',
 #    'https://프론트엔드주소',
 #]
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+        # 'rest_framework.authentication.SessionAuthentication',  # 이 줄을 주석처리
+    ],
+}
