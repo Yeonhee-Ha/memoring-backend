@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, Setting
+from .models import *
 
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -7,10 +7,10 @@ class UserSignupSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'password', 'phone', 'birth_date',
+            'id', 'email', 'name', 'password', 'phone', 'birth_date',
             'tutorial_status', 'image', 'created_at'
         ]
-        read_only_fields = ['id', 'name', 'tutorial_status', 'image', 'created_at']
+        read_only_fields = ['id', 'tutorial_status', 'image', 'created_at']
 
 
     def create(self, validated_data):
@@ -30,3 +30,10 @@ class UserSignupSerializer(serializers.ModelSerializer):
         )
 
         return user
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'phone', 'birth_date', 'name', 'image']
+        read_only_fields = ['id', 'email']

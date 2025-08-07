@@ -8,6 +8,9 @@ from django.contrib.auth.models import AbstractUser
 # 사용자 모델
 class User(AbstractUser):
     username = None  # username 필드 제거
+    first_name = None
+    last_name = None
+    
     id = models.AutoField(primary_key=True)
     email = models.EmailField(unique=True) #아이디로 사용하려면 unique로 설정해야 함
     name = models.CharField(max_length=50) #기존 방식은 성, 이름을 따로 입력해야 함
