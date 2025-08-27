@@ -9,7 +9,8 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+from datetime import timedelta
+#from celery.schedules import crontab
 from pathlib import Path
 
 import os
@@ -28,6 +29,9 @@ SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
+#OPENAI_API_KEY = env("OPENAI_API_KEY")
+#GOOGLE_GEOCODING_API_KEY = env("GOOGLE_GEOCODING_API_KEY")
+DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = ['*']
 
@@ -44,7 +48,11 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    #'django_celery_beat',
+    
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'drf_yasg',
     
@@ -56,7 +64,18 @@ INSTALLED_APPS = [
     'tutorial',
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
 
+SIMPLE_JWT = {
+    'BLACKLIST_AFTER_ROTATION': True,
+    
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=14),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+}
 
 
 MIDDLEWARE = [
@@ -102,6 +121,9 @@ DATABASES = {
     }
 }
 
+#업로드 파일 최대 크기
+DATA_UPLOAD_MAX_MEMORY_SIZE = 200 * 1024 * 1024  # 200MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 200 * 1024 * 1024  # 200MB
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -131,7 +153,7 @@ TIME_ZONE = 'Asia/Seoul'
 
 USE_I18N = True
 
-USE_TZ = False
+USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -160,9 +182,3 @@ CORS_ALLOW_CREDENTIALS = True
 #]
 
 
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.BasicAuthentication',
-        # 'rest_framework.authentication.SessionAuthentication',  # 이 줄을 주석처리
-    ],
-}

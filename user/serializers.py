@@ -1,39 +1,34 @@
 from rest_framework import serializers
-from .models import *
+from django.contrib.auth import get_user_model
 
+User = get_user_model()
+
+
+# 회원가입용 (비밀번호 write_only 처리)
 class UserSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = [
-            'id', 'email', 'name', 'password', 'phone', 'birth_date',
-            'tutorial_status', 'image', 'created_at'
-        ]
-        read_only_fields = ['id', 'tutorial_status', 'image', 'created_at']
-
+        fields = ["id", "email", "password", "name", "phone", "birth_date", "tutorial_status", "image"]
 
     def create(self, validated_data):
-        password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
-        user.save()
-
-        # 회원가입 시 Setting 객체 자동 생성
-        Setting.objects.create(
-            user=user,
-            sleep_start="00:00:00",
-            sleep_end="00:00:00",
-            voice_url="",
-            voice_id="",
-            reminder_time="00:00:00",
+        user = User(
+            email=validated_data["email"],
+            name=validated_data["name"],
+            phone=validated_data["phone"],
+            birth_date=validated_data["birth_date"],
+            tutorial_status=validated_data.get("tutorial_status", False),
+            image=validated_data.get("image"),
         )
-
+        user.set_password(validated_data["password"])  # 비밀번호 해싱
+        user.save()
         return user
 
 
+# 유저 조회/수정/응답 공용
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'phone', 'birth_date', 'name', 'image']
-        read_only_fields = ['id', 'email']
+        fields = ["id", "email", "name", "phone", "birth_date", "created_at", "tutorial_status", "image"]
+        read_only_fields = ["id", "email", "created_at"]
