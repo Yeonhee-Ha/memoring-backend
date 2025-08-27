@@ -1,8 +1,9 @@
-from rest_framework import viewsets, status, permissions
+from rest_framework import viewsets, permissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .serializers import TutorialSerializer, SettingReadSerializer, SettingWriteSerializer
 from .models import Setting, Voice
+from datetime import time
 
 class TutorialViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -12,96 +13,101 @@ class TutorialViewSet(viewsets.ViewSet):
         serializer = TutorialSerializer(request.user)
         return Response(serializer.data)
 
-    # POST /tutorial/
+    # POST /tutorial/ → tutorial_status 업데이트
     def create(self, request):
         serializer = TutorialSerializer(request.user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
 
 #######################################################
 class SettingViewSet(viewsets.ViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_serializer_class(self):
+        if self.action in ["list", "retrieve"]:
+            return SettingReadSerializer
+        return SettingWriteSerializer
+
     # GET /tutorial/setting/
     def list(self, request):
         try:
             setting = request.user.setting
-            serializer = SettingReadSerializer(setting)
-            return Response(serializer.data)
         except Setting.DoesNotExist:
             return Response({"detail": "설정이 없습니다."}, status=404)
 
-    # POST /tutorial/setting/ → 설정 생성/업데이트
-    def create(self, request):
-        try:
-            setting = request.user.setting
-            serializer = SettingWriteSerializer(setting, data=request.data, partial=True, context={"request": request})
-        except Setting.DoesNotExist:
-            serializer = SettingWriteSerializer(data=request.data, partial=True, context={"request": request})
+        serializer = SettingReadSerializer(setting, context={"request": request})
+        return Response(serializer.data)
 
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    # POST /tutorial/setting/sleep
+    # POST /tutorial/setting/ → create or update
+    def create(self, request):
+        serializer = SettingWriteSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        # update_or_create 사용
+        validated_data = serializer.validated_data.copy()
+        voice_file = validated_data.pop("voice_file", None)
+
+        if voice_file:
+            Voice.objects.update_or_create(user=request.user, defaults={"file": voice_file})
+
+        reminder = validated_data.pop("reminder_time", None)
+        if reminder is not None:
+            validated_data["reminder_time"] = time(hour=reminder // 60, minute=reminder % 60)
+
+        setting, _ = Setting.objects.update_or_create(
+            user=request.user,
+            defaults=validated_data
+        )
+
+        read_serializer = SettingReadSerializer(setting, context={"request": request})
+        return Response(read_serializer.data)
+
+    # POST /tutorial/setting/sleep → create or update sleep times
     @action(detail=False, methods=["post"], url_path="sleep")
     def set_sleep(self, request):
-        try:
-            setting = request.user.setting
-        except Setting.DoesNotExist:
-            setting = Setting(user=request.user)
+        serializer = SettingWriteSerializer(data=request.data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
 
-        serializer = SettingWriteSerializer(
-            setting, 
-            data={
-                "sleep_start": request.data.get("sleep_start"),
-                "sleep_end": request.data.get("sleep_end")
-            },
-            partial=True
+        validated_data = serializer.validated_data.copy()
+        reminder = validated_data.pop("reminder_time", None)
+        if reminder is not None:
+            validated_data["reminder_time"] = time(hour=reminder // 60, minute=reminder % 60)
+
+        setting, _ = Setting.objects.update_or_create(
+            user=request.user,
+            defaults=validated_data
         )
-        if serializer.is_valid():
-            serializer.save(user=request.user)
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # POST /tutorial/setting/voice
+        return Response(SettingReadSerializer(setting, context={"request": request}).data)
+
+    # POST /tutorial/setting/voice → create or update voice
     @action(detail=False, methods=["post"], url_path="voice")
     def set_voice(self, request):
-        try:
-            setting = request.user.setting
-        except Setting.DoesNotExist:
-            setting = Setting(user=request.user)
-
-        # 업로드된 파일 받기
-        uploaded_file = request.FILES.get("file")
+        uploaded_file = request.FILES.get("voice")
         if not uploaded_file:
             return Response({"detail": "파일이 필요합니다."}, status=400)
 
-        # Voice 객체 생성
-        voice_obj = Voice.objects.create(file=uploaded_file)
+        Voice.objects.update_or_create(user=request.user, defaults={"file": uploaded_file})
 
-        # Setting에 연결
-        setting.voice = voice_obj
-        setting.save()
+        setting, _ = Setting.objects.update_or_create(user=request.user)
+        return Response(SettingReadSerializer(setting, context={"request": request}).data)
 
-        serializer = SettingWriteSerializer(setting)
-        return Response(serializer.data)
-    
-    # POST /tutorial/setting/reminder
+    # POST /tutorial/setting/reminder → create or update reminder
     @action(detail=False, methods=["post"], url_path="reminder")
     def set_reminder(self, request):
-        try:
-            setting = request.user.setting
-            serializer = SettingWriteSerializer(setting, data=request.data, partial=True)
-        except Setting.DoesNotExist:
-            serializer = SettingWriteSerializer(data=request.data)
+        serializer = SettingWriteSerializer(data=request.data, partial=True, context={"request": request})
+        serializer.is_valid(raise_exception=True)
 
-        if serializer.is_valid():
-            serializer.save(user=request.user)
-            # 저장 후 read serializer로 반환
-            read_serializer = SettingReadSerializer(serializer.instance)
-            return Response(read_serializer.data)
-        return Response(serializer.errors, status=400)
+        validated_data = serializer.validated_data.copy()
+        reminder = validated_data.pop("reminder_time", None)
+        if reminder is not None:
+            validated_data["reminder_time"] = time(hour=reminder // 60, minute=reminder % 60)
+
+        setting, _ = Setting.objects.update_or_create(
+            user=request.user,
+            defaults=validated_data
+        )
+
+        return Response(SettingReadSerializer(setting, context={"request": request}).data)
