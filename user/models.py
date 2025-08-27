@@ -6,33 +6,54 @@ from django.contrib.auth.models import AbstractUser
 #    return f'user/{instance.id}/profile/{filename}'
 
 # 사용자 모델
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.db import models
+
+# 1️⃣ 커스텀 유저 매니저
+class UserManager(BaseUserManager):
+    use_in_migrations = True
+
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("이메일은 필수입니다.")
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser는 is_staff=True 이어야 합니다.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser는 is_superuser=True 이어야 합니다.")
+
+        return self.create_user(email, password, **extra_fields)
+
+
+# 2️⃣ 커스텀 유저 모델
 class User(AbstractUser):
-    username = None  # username 필드 제거
+    username = None
     first_name = None
     last_name = None
-    
+
     id = models.AutoField(primary_key=True)
-    email = models.EmailField(unique=True) #아이디로 사용하려면 unique로 설정해야 함
-    name = models.CharField(max_length=50) #기존 방식은 성, 이름을 따로 입력해야 함
+    email = models.EmailField(unique=True)
+    name = models.CharField(max_length=50)
     phone = models.CharField(max_length=20)
     birth_date = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
     tutorial_status = models.BooleanField(default=False)
-    image = models.URLField(blank=True, null=True) #외부 url을 저장하는 방식
-    #image = models.ImageField(upload_to=image_upload_path, blank=True, null=True) 실제 파일 업로드
+    image = models.URLField(blank=True, null=True)
 
-    USERNAME_FIELD = 'email' #로그인 시 사용할 필드 지정: 이메일을 아이디로 사용함
-    REQUIRED_FIELDS = [] #createsuperuser 명령어에서 추가로 입력을 요구할 필드 목록
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["birth_date", "name", "phone"]  # createsuperuser 시 추가 필드 요구하지 않음
 
-# 설정 모델
-class Setting(models.Model):
-    id = models.AutoField(primary_key=True)
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    sleep_start = models.TimeField()
-    sleep_end = models.TimeField()
-    voice_url = models.URLField()
-    voice_id = models.CharField(max_length=255)
-    reminder_time = models.TimeField()
+    objects = UserManager()  # 커스텀 매니저 연결
 
-    
+##################################################################3
 
