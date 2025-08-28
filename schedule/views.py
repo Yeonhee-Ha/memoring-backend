@@ -43,6 +43,26 @@ def elevenlabs_tts(text: str, voice_id: str):
     tts_url = settings.MEDIA_URL + "tts/question.mp3"
     return tts_url
 
+    
+def elevenlabs_tts_summary(text: str, voice_id: str, filename="summary.mp3"):
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+    headers = {
+        "xi-api-key": settings.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "text": text,
+        "voice_settings": {"stability": 0.5, "similarity_boost": 0.8}
+    }
+    response = requests.post(url, headers=headers, json=payload)
+    if response.status_code != 200:
+        raise Exception(f"TTS failed: {response.text}")
+    file_path = f"{settings.MEDIA_ROOT}/tts/{filename}"
+    with open(file_path, "wb") as f:
+        f.write(response.content)
+    return settings.MEDIA_URL + f"tts/{filename}"
+
+    
 ######################################################
 class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = Schedule.objects.all()
@@ -55,6 +75,18 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         "몇 시 일정인가요?",
         "오전인가요 오후인가요?"
     ]
+    
+    # 본인 일정만 조회
+    def get_queryset(self):
+        return Schedule.objects.filter(user=self.request.user)
+
+    # 진행 중인 일정 조회
+    @action(detail=False, methods=["get"])
+    def current(self, request):
+        schedule = Schedule.objects.filter(user=request.user, processed=False).last()
+        if not schedule:
+            return Response({"error": "진행 중인 일정이 없습니다."}, status=404)
+        return Response(self.get_serializer(schedule).data)
     
     # 1️⃣ 질문 단계 (TTS)
     @action(detail=False, methods=["get"])
@@ -76,6 +108,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             "question": question_text,
             "tts_url": request.build_absolute_uri(tts_url)
         })
+        
         
     # 2️⃣ 답변 업로드 (STT + GPT 파싱)
     @action(detail=False, methods=["post"])
@@ -122,7 +155,12 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         schedule.transcript = (schedule.transcript or "") + f"\nQ{step}: {text}"
         schedule.save()
 
-        return Response({"step": step, "transcript": text, "parsed": parsed_json})
+        return Response({
+            "step": step, 
+            "transcript": text, 
+            "parsed": parsed_json,
+            "schedule": ScheduleSerializer(schedule).data,
+        })
 
         
     # 3️⃣ 최종 저장
@@ -132,6 +170,34 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         if not schedule:
             return Response({"error": "저장할 일정이 없습니다."}, status=400)
 
+        # ✅ 2.1.4 일정 수정 기능
+        # 프론트에서 수정이 있었다면 반영 가능
+        serializer = ScheduleSerializer(schedule, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+
+        # ✅ 2.1.3 일정 요약 TTS
+        summary_text = f"일정: {schedule.parsed_title}, 날짜: {schedule.parsed_date}, 시간: {schedule.parsed_time}, 오전/오후: {schedule.parsed_ampm}"
+        try:
+            voice_id = request.user.voice.voice_id
+            tts_url = elevenlabs_tts_summary(summary_text, voice_id)
+        except Exception:
+            tts_url = None
+
         schedule.processed = True
         schedule.save()
-        return Response(ScheduleSerializer(schedule).data)
+
+        return Response({
+            "schedule": ScheduleSerializer(schedule).data,
+            "summary_text": summary_text,
+            "tts_url": request.build_absolute_uri(tts_url) if tts_url else None
+        })
+
+    # DELETE /schedule/{pk}/
+    def destroy(self, request, pk=None):
+        try:
+            schedule = Schedule.objects.get(pk=pk, user=request.user)
+        except Schedule.DoesNotExist:
+            return Response({"error": "해당 일정이 없습니다."}, status=404)
+        schedule.delete()
+        return Response({"message": "일정이 삭제되었습니다."}, status=204)
