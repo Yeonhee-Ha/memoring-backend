@@ -40,9 +40,11 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('main.urls')),
-    path('alery/', include('alert.urls')),
+    path('alert/', include('alert.urls')), # 오타 수정
+    # path('alery/', include('alert.urls')),
     path('recall/', include('recall.urls')),
-    path('schedule', include('schedule.urls')),
+    path('schedule/', include('schedule.urls')), # trailing slash
+    # path('schedule', include('schedule.urls')),
     path('tutorial/', include('tutorial.urls')),
     path('user/', include('user.urls')),
     path('api/', include('main.urls')),
