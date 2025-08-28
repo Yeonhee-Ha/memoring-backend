@@ -31,7 +31,7 @@ SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
-#OPENAI_API_KEY = env("OPENAI_API_KEY")
+OPENAI_API_KEY = env("OPENAI_API_KEY")
 #GOOGLE_GEOCODING_API_KEY = env("GOOGLE_GEOCODING_API_KEY")
 DEBUG = env('DEBUG')
 
