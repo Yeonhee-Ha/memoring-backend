@@ -20,6 +20,23 @@ class Schedule(models.Model):
     processed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"[{self.id}] {self.user.name} / {self.parsed_title or '임시'}"
+
+class ScheduleStep(models.Model):
+    id = models.AutoField(primary_key=True)
+    schedule = models.ForeignKey(Schedule, related_name="steps", on_delete=models.CASCADE)
+    step_number = models.IntegerField()  # 1=제목, 2=날짜, 3=시간 ...
+    voice_url = models.URLField()
+    transcript = models.TextField()
+    parsed_value = models.CharField(max_length=255, null=True, blank=True)  # "회의", "2025-08-29" 등
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Step {self.step_number} - {self.transcript}"
+    
+#########################################################################
+    
 #스케줄 상태
 class ScheduleStats(models.Model):
     id = models.AutoField(primary_key=True)
