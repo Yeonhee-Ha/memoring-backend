@@ -7,6 +7,7 @@ from user.models import User
 class Voice(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)  # 유저당 1개 Voice
     file = models.FileField(upload_to="voices/")
+    voice_id = models.CharField(max_length=100, blank=True, null=True)  # ElevenLabs 발급 ID
     
     def __str__(self):
         return f"{self.user.name} Voice"
