@@ -38,14 +38,14 @@ class SettingReadSerializer(serializers.ModelSerializer):
             return None
 
 class SettingWriteSerializer(serializers.ModelSerializer):
-    voice_file = serializers.FileField(required=False)
+    voice = serializers.FileField(required=False)
     reminder_time = serializers.IntegerField(required=False)
     sleep_start = serializers.CharField()
     sleep_end = serializers.CharField()
 
     class Meta:
         model = Setting
-        fields = ["sleep_start", "sleep_end", "reminder_time", "voice_file"]
+        fields = ["sleep_start", "sleep_end", "reminder_time", "voice"]
 
     def validate_time_field(self, value):
         if isinstance(value, int):
@@ -74,11 +74,11 @@ class SettingWriteSerializer(serializers.ModelSerializer):
         validated_data.pop("user", None)  
 
         user = self.context["request"].user
-        voice_file = validated_data.pop("voice_file", None)
+        voice = validated_data.pop("voice", None)
 
-        if voice_file:
+        if voice:
             from .models import Voice
-            Voice.objects.update_or_create(user=user, defaults={"file": voice_file})
+            Voice.objects.update_or_create(user=user, defaults={"file": voice})
 
         reminder = validated_data.pop("reminder_time", None)
         if reminder is not None:
@@ -88,10 +88,10 @@ class SettingWriteSerializer(serializers.ModelSerializer):
 
 
     def update(self, instance, validated_data):
-        voice_file = validated_data.pop("voice_file", None)
-        if voice_file:
+        voice = validated_data.pop("voice", None)
+        if voice:
             from .models import Voice
-            Voice.objects.update_or_create(user=instance.user, defaults={"file": voice_file})
+            Voice.objects.update_or_create(user=instance.user, defaults={"file": voice})
 
         reminder = validated_data.pop("reminder_time", None)
         if reminder is not None:
