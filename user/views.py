@@ -62,16 +62,28 @@ class UserViewSet(viewsets.ViewSet):
         except Exception:
             return Response({"error": "유효하지 않은 토큰"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # 내 정보 조회
-    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated], url_path="me")
-    def me(self, request):
-        return Response(UserSerializer(request.user).data)
 
-    # 내 정보 수정
-    @action(detail=False, methods=["patch"], permission_classes=[permissions.IsAuthenticated], url_path="me")
-    def update_me(self, request):
+    # 동일 url path 통합 (GET 조회 / PATCH 수정) - 라우팅 충돌
+    @action(detail=False, methods=["get", "patch"], url_path="me", permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        if request.method.lower() == "get":
+            return Response(UserSerializer(request.user).data)
         serializer = UserSerializer(request.user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+    
+    
+    # # 내 정보 조회
+    # @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated], url_path="me")
+    # def me(self, request):
+    #     return Response(UserSerializer(request.user).data)
+
+    # # 내 정보 수정
+    # @action(detail=False, methods=["patch"], permission_classes=[permissions.IsAuthenticated], url_path="me")
+    # def update_me(self, request):
+    #     serializer = UserSerializer(request.user, data=request.data, partial=True)
+    #     if serializer.is_valid():
+    #         serializer.save()
+    #         return Response(serializer.data)
+    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
